@@ -76,7 +76,7 @@ func SshMachine(host string) {
 		"StrictHostKeyChecking=no",
 		host,
 	}
-	syscall.Exec("/usr/bin/ssh", sshCmd, []string{})
+	syscall.Exec("/usr/bin/ssh", sshCmd, os.Environ())
 }
 
 func RunCommand(host, command string) (string, error) {
