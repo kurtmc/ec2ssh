@@ -3,9 +3,13 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"math/rand"
 	"os"
 	"os/exec"
+	"strings"
 	"sync"
+	"syscall"
+	"time"
 
 	"github.com/kurtmc/ec2search/search"
 	"golang.org/x/crypto/ssh/terminal"
@@ -21,6 +25,12 @@ type PrintJob struct {
 func main() {
 	instances, err := search.ListInstances(os.Args[1])
 	n := len(instances)
+
+	if len(os.Args[1:]) < 2 {
+		rand.Seed(time.Now().Unix())
+		SshMachine(instances[rand.Intn(n)])
+	}
+
 	if err != nil {
 		panic(err)
 	}
@@ -35,7 +45,8 @@ func main() {
 			host := <-in
 			commandOutput, err := RunCommand(host, os.Args[2])
 			if err != nil {
-				panic(err)
+				out <- PrintJob{Host: host, Message: fmt.Sprintf("Failed to execute, err: %v", err)}
+				return
 			}
 			out <- PrintJob{Host: host, Message: commandOutput}
 		}()
@@ -52,10 +63,20 @@ func Print(host, msg string) {
 	redEnd := "\033[0m"
 	colourHost := redStart + host + redEnd
 	if terminal.IsTerminal(int(os.Stdout.Fd())) {
-		fmt.Printf("%s: %s", colourHost, msg)
+		fmt.Printf("%s: %s\n", colourHost, strings.TrimSpace(msg))
 	} else {
-		fmt.Printf("%s: %s", host, msg)
+		fmt.Printf("%s: %s\n", host, strings.TrimSpace(msg))
 	}
+}
+
+func SshMachine(host string) {
+	sshCmd := []string{
+		"ssh",
+		"-o",
+		"StrictHostKeyChecking=no",
+		host,
+	}
+	syscall.Exec("/usr/bin/ssh", sshCmd, []string{})
 }
 
 func RunCommand(host, command string) (string, error) {
