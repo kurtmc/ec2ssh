@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"hash/fnv"
 	"math/rand"
 	"os"
 	"os/exec"
@@ -59,11 +60,11 @@ func main() {
 }
 
 func Print(host, msg string) {
-	redStart := "\033[0;31m"
-	redEnd := "\033[0m"
-	colourHost := redStart + host + redEnd
+	colour := hashColour(host)
+	start := "\033[38;5;" + colour + "m"
+	end := "\033[0m"
 	if terminal.IsTerminal(int(os.Stdout.Fd())) {
-		fmt.Printf("%s: %s\n", colourHost, strings.TrimSpace(msg))
+		fmt.Printf("%s: %s\n", start+host+end, strings.TrimSpace(msg))
 	} else {
 		fmt.Printf("%s: %s\n", host, strings.TrimSpace(msg))
 	}
@@ -94,4 +95,10 @@ func RunCommand(host, command string) (string, error) {
 		return "", err
 	}
 	return out.String(), nil
+}
+
+func hashColour(s string) string {
+	h := fnv.New32a()
+	h.Write([]byte(s))
+	return fmt.Sprintf("%d", (int(h.Sum32())%256)+1)
 }
