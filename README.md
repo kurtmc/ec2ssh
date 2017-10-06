@@ -1,6 +1,8 @@
 ec2ssh
 ======
 
+Command line utility to easily execute commands across multiple EC2 instances.
+
 ## Installation
 
 ```
