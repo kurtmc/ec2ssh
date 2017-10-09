@@ -71,13 +71,19 @@ func Print(host, msg string) {
 }
 
 func SshMachine(host string) {
+	out, err := exec.Command("which", "ssh").Output()
+	sshPath := strings.TrimSpace(string(out))
+	if err != nil {
+		panic(err)
+	}
+
 	sshCmd := []string{
 		"ssh",
 		"-o",
 		"StrictHostKeyChecking=no",
 		host,
 	}
-	syscall.Exec("/usr/bin/ssh", sshCmd, os.Environ())
+	syscall.Exec(sshPath, sshCmd, os.Environ())
 }
 
 func RunCommand(host, command string) (string, error) {
