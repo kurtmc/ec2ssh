@@ -24,16 +24,21 @@ func ListRegions() []*ec2.Region {
 
 func ListInstances(name string) ([]string, error) {
 	sess := session.Must(session.NewSession())
+	var wg sync.WaitGroup
 
 	// Get all regions
-	in := make(chan *ec2.Region, 100)
+	in := make(chan *ec2.Region)
 	regions := ListRegions()
-	for _, r := range regions {
-		in <- r
-	}
-	close(in)
+	wg.Add(1)
+	go func() {
+		for _, r := range regions {
+			in <- r
+		}
+		close(in)
+		wg.Done()
+	}()
 
-	out := make(chan string, 100)
+	out := make(chan string)
 	params := &ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
 			{
@@ -44,10 +49,9 @@ func ListInstances(name string) ([]string, error) {
 			},
 		},
 	}
-	var wg sync.WaitGroup
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
-		go func(wg *sync.WaitGroup) {
+		go func() {
 			defer wg.Done()
 			for region := range in {
 				svc := ec2.New(sess, &aws.Config{Region: region.RegionName})
@@ -65,11 +69,13 @@ func ListInstances(name string) ([]string, error) {
 					}
 				}
 			}
-		}(&wg)
+		}()
 	}
 
-	wg.Wait()
-	close(out)
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
 
 	var instances []string
 	for instance := range out {
