@@ -24,6 +24,7 @@ type PrintJob struct {
 }
 
 func main() {
+	var wg sync.WaitGroup
 	instances, err := search.ListInstances(os.Args[1])
 	n := len(instances)
 
@@ -35,17 +36,31 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	in := make(chan string, n)
-	out := make(chan PrintJob, n)
-	for _, i := range instances {
-		in <- i
-	}
+
+	in := make(chan string)
+
+	wg.Add(1)
+	go func() {
+		for _, i := range instances {
+			in <- i
+		}
+		close(in)
+		wg.Done()
+	}()
+
+	out := make(chan PrintJob)
 
 	for i := 0; i < 10; i++ {
+		wg.Add(1)
 		go func() {
+			defer wg.Done()
 			host := <-in
+			if host == "" {
+				return
+			}
 			commandOutput, err := RunCommand(host, os.Args[2])
 			if err != nil {
+				fmt.Println(err)
 				out <- PrintJob{Host: host, Message: fmt.Sprintf("Failed to execute, err: %v", err)}
 				return
 			}
@@ -53,8 +68,12 @@ func main() {
 		}()
 	}
 
-	for i := 0; i < n; i++ {
-		printJob := <-out
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+
+	for printJob := range out {
 		Print(printJob.Host, printJob.Message)
 	}
 }
