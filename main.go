@@ -54,17 +54,18 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			host := <-in
-			if host == "" {
-				return
+			for host := range in {
+				if host == "" {
+					continue
+				}
+				commandOutput, err := RunCommand(host, os.Args[2])
+				if err != nil {
+					fmt.Println(err)
+					out <- PrintJob{Host: host, Message: fmt.Sprintf("Failed to execute, err: %v", err)}
+					continue
+				}
+				out <- PrintJob{Host: host, Message: commandOutput}
 			}
-			commandOutput, err := RunCommand(host, os.Args[2])
-			if err != nil {
-				fmt.Println(err)
-				out <- PrintJob{Host: host, Message: fmt.Sprintf("Failed to execute, err: %v", err)}
-				return
-			}
-			out <- PrintJob{Host: host, Message: commandOutput}
 		}()
 	}
 
